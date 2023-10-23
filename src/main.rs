@@ -5,6 +5,7 @@ mod datacube;
 mod instruction;
 mod program;
 
+mod basic_blocks;
 
 fn main() -> std::process::ExitCode {
     let argv = std::env::args().collect::<Vec<_>>();
@@ -35,9 +36,21 @@ fn main() -> std::process::ExitCode {
     //     JUMP     d
     let mut program = program::Program::from_asm(&asm_file_contents).unwrap();
     
-    // for inst in program.instructions.iter() {
-    //     println!("{inst:?}");
+    // for (i, inst) in program.instructions.iter().enumerate() {
+    //     println!("{i}. {inst:?}");
     // }
+    
+    for block in program.split_into_blocks() {
+        println!("Block {:?}:", block.id.0);
+        
+        for inst in block.instructions {
+            println!("  {inst:?}");
+        }
+        
+        for (id, flag) in block.outgoing_jumps {
+            println!("  -> Block {:?} ({:?})", id.0, flag);
+        }
+    }
     
     // (NOTE: average perf: 182 steps)
     program.initial_floor = vec![None; 15];

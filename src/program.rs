@@ -94,8 +94,6 @@ impl Program {
         let mut held_item: Option<DataCube> = None;
         let mut outbox = Vec::new();
         
-        
-        
         loop {
             // skip labels
             while let Some(Instruction::_Label(_)) = self.instructions.get(program_counter) {
@@ -271,5 +269,76 @@ impl Program {
         }
         
         Ok((steps, outbox))
+    }
+    
+    pub fn split_into_blocks(&self) -> Vec<crate::basic_blocks::BasicBlock> {
+        use crate::basic_blocks::{BasicBlockId, BasicBlock, JumpFlag};
+        use Instruction::*;
+        
+        let mut leader_indices = vec![0];
+        
+        // find leaders
+        for (i, inst) in self.instructions.iter().enumerate().skip(1) {
+            match inst {
+                Jump(_) | JumpN(_) | JumpZ(_) if !matches!(self.instructions.get(i + 1), Some(Jump(_) | JumpN(_) | JumpZ(_))) => {
+                    leader_indices.push(i + 1);
+                },
+                _Label(_) if !matches!(self.instructions.get(i - 1), Some(_Label(_))) => {
+                    leader_indices.push(i);
+                },
+                _ => {},
+            }
+        }
+        
+        // ids of each block that a given label is the head for
+        let label_block_ids: Vec<BasicBlockId> = self.jump_index_table.iter()
+            .map(|i| match leader_indices.binary_search(i) {
+                Ok(idx) => BasicBlockId(idx),
+                Err(idx) => BasicBlockId(idx - 1),
+            })
+            .collect();
+        
+        leader_indices.iter().zip(leader_indices.iter().skip(1))
+        .enumerate().map(|(i, (&(mut a), &(mut b)))| {
+            let end = b;
+            
+            // advance a forward to ignore labels
+            while let Some(_Label(_)) = self.instructions.get(a) {
+                a += 1;
+            }
+            
+            // advance b backwards to ignore jumps
+            while let Some(Jump(_) | JumpN(_) | JumpZ(_)) = self.instructions.get(b-1) {
+                b -= 1;
+            }
+            
+            let mut has_unconditional_jump = false;
+            
+            let mut jumps: Vec<(BasicBlockId, JumpFlag)> = self.instructions[b..end].iter().map(|jump| {
+                let (label, flag) = match jump {
+                    Jump(l) => {
+                        has_unconditional_jump = true;
+                        (l, JumpFlag::Always)
+                    },
+                    JumpN(l) => (l, JumpFlag::IfNegative),
+                    JumpZ(l) => (l, JumpFlag::IfZero),
+                    _ => unreachable!(),
+                };
+                let label_idx = label.as_bytes()[0] - b'a';
+                let id = label_block_ids[label_idx as usize].clone();
+                (id, flag)
+            }).collect();
+            
+            if !has_unconditional_jump {
+                jumps.push((BasicBlockId(i + 1), JumpFlag::Always));
+            }
+            
+            BasicBlock {
+                id: BasicBlockId(i),
+                instructions: self.instructions[a..b].to_vec(),
+                outgoing_jumps: jumps
+            }
+        })
+        .collect()
     }
 }

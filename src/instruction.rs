@@ -1,7 +1,7 @@
 use crate::{errors::{AsmParseError, HRMRuntimeError}, datacube::DataCube};
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Address {
     Direct(usize),
     Indirect(usize),
@@ -55,7 +55,7 @@ impl Address {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Instruction {
     /// #### INBOX: Pick up the next thing from the inbox.
     /// 
