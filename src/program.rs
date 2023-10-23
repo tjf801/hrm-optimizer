@@ -277,16 +277,29 @@ impl Program {
         
         let mut leader_indices = vec![0];
         
-        // find leaders
+        // find leaders, s.t. each pair in leader_indices is the start and end of a block
         for (i, inst) in self.instructions.iter().enumerate().skip(1) {
-            match inst {
-                Jump(_) | JumpN(_) | JumpZ(_) if !matches!(self.instructions.get(i + 1), Some(Jump(_) | JumpN(_) | JumpZ(_))) => {
+            if let Jump(_) | JumpN(_) | JumpZ(_) = inst {
+                if !matches!(self.instructions.get(i + 1), Some(Jump(_) | JumpN(_) | JumpZ(_))) {
                     leader_indices.push(i + 1);
-                },
-                _Label(_) if !matches!(self.instructions.get(i - 1), Some(_Label(_))) => {
-                    leader_indices.push(i);
-                },
-                _ => {},
+                }
+            }
+            else if let _Label(_) = inst {
+                if let Some(_Label(_)) = self.instructions.get(i - 1) {
+                    continue;
+                }
+                // dont add the same index twice
+                if let Some(&a) = leader_indices.last() {
+                    if a == i { continue; }
+                }
+                leader_indices.push(i);
+            }
+        }
+        
+        // make sure to end the last block
+        if let Some(&last) = leader_indices.last() {
+            if last != self.instructions.len() {
+                leader_indices.push(self.instructions.len());
             }
         }
         
@@ -295,8 +308,7 @@ impl Program {
             .map(|i| match leader_indices.binary_search(i) {
                 Ok(idx) => BasicBlockId(idx),
                 Err(idx) => BasicBlockId(idx - 1),
-            })
-            .collect();
+            }).collect();
         
         leader_indices.iter().zip(leader_indices.iter().skip(1))
         .enumerate().map(|(i, (&(mut a), &(mut b)))| {
