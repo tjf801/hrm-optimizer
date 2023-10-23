@@ -8,5 +8,6 @@ a:
     OUTBOX  
 b:
     OUTBOX  
-
+    JUMP     c
+c:
 
