@@ -275,9 +275,8 @@ impl Program {
         use crate::basic_blocks::{BasicBlockId, BasicBlock, JumpFlag};
         use Instruction::*;
         
-        let mut leader_indices = vec![0];
-        
         // find leaders, s.t. each pair in leader_indices is the start and end of a block
+        let mut leader_indices = vec![0];
         for (i, inst) in self.instructions.iter().enumerate().skip(1) {
             if let Jump(_) | JumpN(_) | JumpZ(_) = inst {
                 if !matches!(self.instructions.get(i + 1), Some(Jump(_) | JumpN(_) | JumpZ(_))) {
@@ -310,8 +309,9 @@ impl Program {
                 Err(idx) => BasicBlockId(idx - 1),
             }).collect();
         
-        leader_indices.iter().zip(leader_indices.iter().skip(1))
-        .enumerate().map(|(i, (&(mut a), &(mut b)))| {
+        let mut blocks: Vec<_> = leader_indices.iter()
+        .zip(leader_indices.iter().skip(1)).enumerate()
+        .map(|(i, (&(mut a), &(mut b)))| {
             let end = b;
             
             // advance a forward to ignore labels
@@ -348,9 +348,38 @@ impl Program {
             BasicBlock {
                 id: BasicBlockId(i),
                 instructions: self.instructions[a..b].to_vec(),
-                outgoing_jumps: jumps
+                outgoing_jumps: jumps,
+                incoming_jumps: vec![],
             }
-        })
-        .collect()
+        }).collect();
+        
+        // add incoming jumps
+        let n = blocks.len();
+        for i in 0..blocks.len() {
+            let (_blocks, blocks_after) = blocks.split_at_mut(i+1);
+            let (block, blocks_before) = _blocks.split_last_mut().unwrap();
+            
+            for &(BasicBlockId(id), flag) in &block.outgoing_jumps {
+                if id == block.id.0 || id == n {
+                    continue;
+                }
+                
+                let target_block = if id < block.id.0 {
+                    &mut blocks_before[id]
+                } else {
+                    &mut blocks_after[id - block.id.0 - 1]
+                };
+                
+                let incoming_flag = if block.outgoing_jumps.len() == 1 {
+                    Some(flag)
+                } else {
+                    None // TODO
+                };
+                
+                target_block.incoming_jumps.push((block.id.clone(), incoming_flag));
+            }
+        }
+        
+        blocks
     }
 }

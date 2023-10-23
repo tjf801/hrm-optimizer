@@ -24,13 +24,27 @@ fn main() -> std::process::ExitCode {
     for block in program.split_into_blocks() {
         println!("Block {:?}:", block.id.0);
         
+        if block.incoming_jumps.len() > 0 {
+            println!("  Incoming jumps:");
+            for (id, flag) in block.incoming_jumps {
+                println!("    -> Block {:?} ({:?})", id.0, flag);
+            }
+            println!();
+        } else {
+            println!("  (DEAD BLOCK)");
+        }
+        
         for inst in block.instructions {
             println!("  {inst:?}");
         }
         
+        println!("  Outgoing jumps:");
         for (id, flag) in block.outgoing_jumps {
-            println!("  -> Block {:?} ({:?})", id.0, flag);
+            println!("    -> Block {:?} ({:?})", id.0, flag);
         }
+        println!();
+        
+        println!();
     }
     
     // (NOTE: average perf: 182 steps)
@@ -47,7 +61,7 @@ fn main() -> std::process::ExitCode {
         DataCube::from_char('D').unwrap(),
         DataCube::from_char('B').unwrap(),
         DataCube::from_char('E').unwrap(),
-    ]).unwrap());
+    ]).unwrap_or((0, vec![])));
     
     return std::process::ExitCode::SUCCESS;
 }
