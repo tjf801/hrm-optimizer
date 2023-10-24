@@ -1,12 +1,12 @@
-use std::sync::Arc;
+use std::{sync::Arc, collections::HashMap};
 
 use crate::{errors::{HRMRuntimeError, AsmParseError}, instruction::Instruction, datacube::DataCube};
 
 
 pub struct Program {
-    pub instructions: Arc<[Instruction]>, // TODO: remove labels altogether?
+    pub instructions: Arc<[Instruction]>,
     pub initial_floor: Vec<Option<DataCube>>,
-    jump_index_table: Vec<usize>,
+    pub jump_label_lines: std::collections::HashMap<String, usize>,
 }
 
 impl Program {
@@ -20,6 +20,8 @@ impl Program {
         } else {
             return Err(AsmParseError::EmptyFile);
         }
+        
+        let mut label_lines = HashMap::<String, usize>::new();
         
         let mut instructions = Vec::new();
         
@@ -39,44 +41,40 @@ impl Program {
                 // too many tokens on a line
                 return Err(AsmParseError::UnexpectedToken(tok.to_string()))
             } else if let Some(&token) = tokens.get(0) {
-                // parse normally
-                let instruction = Instruction::parse_from_args(token, tokens.get(1).copied())?;
-                instructions.push(instruction);
+                // parse labels
+                if let Some(label) = token.strip_suffix(':') {
+                    if let Some(arg) = tokens.get(1) {
+                        return Err(AsmParseError::UnexpectedToken(arg.to_string()))
+                    }
+                    label_lines.insert(label.to_string(), instructions.len());
+                } else {
+                    // parse normally
+                    let instruction = Instruction::parse_from_args(token, tokens.get(1).copied())?;
+                    instructions.push(instruction);
+                }
             } else {
                 // empty line
                 continue
             }
         }
         
-        let mut result = Self {
+        // make sure all jumps work
+        Self::validate_jumps(&instructions, &label_lines)?;
+        
+        Ok(Self {
             instructions: instructions.into(),
             initial_floor: Vec::new(),
-            jump_index_table: Vec::new(),
-        };
-        
-        result.validate_jumps()?;
-        
-        Ok(result)
+            jump_label_lines: label_lines,
+        })
     }
     
-    fn validate_jumps(&mut self) -> Result<(), AsmParseError> {
-        self.jump_index_table.clear();
-        
-        for (i, instruction) in self.instructions.iter().enumerate() {
-            match instruction {
-                Instruction::_Label(x) => {
-                    if x.len() != 1 {
-                        // TODO: support arbitrary labels
-                        return Err(AsmParseError::UnexpectedToken(x.to_string()));
+    fn validate_jumps(instructions: &[Instruction], labels: &HashMap<String, usize>) -> Result<(), AsmParseError> {
+        for instr in instructions {
+            match instr {
+                Instruction::Jump(label) | Instruction::JumpN(label) | Instruction::JumpZ(label) => {
+                    if !labels.contains_key(label) {
+                        return Err(AsmParseError::UnknownLabel(label.clone()));
                     }
-                    
-                    let index = x.as_bytes()[0] - 'a' as u8;
-                    
-                    if index as usize != self.jump_index_table.len() {
-                        return Err(AsmParseError::UnexpectedToken(x.to_string()));
-                    }
-                    
-                    self.jump_index_table.push(i);
                 },
                 _ => {},
             }
@@ -95,11 +93,6 @@ impl Program {
         let mut outbox = Vec::new();
         
         loop {
-            // skip labels
-            while let Some(Instruction::_Label(_)) = self.instructions.get(program_counter) {
-                program_counter += 1;
-            }
-            
             // reached end of program
             if program_counter >= self.instructions.len() {
                 break;
@@ -219,49 +212,26 @@ impl Program {
                 
                 // jump instructions
                 Instruction::Jump(label) => {
-                    if label.len() != 1 {
-                        // TODO: support arbitrary labels
-                        panic!("Unknown label: {}", label);
-                    }
-                    
-                    let index = label.as_bytes()[0] - 'a' as u8;
-                    
-                    program_counter = self.jump_index_table[index as usize];
+                    program_counter = self.jump_label_lines[label].saturating_sub(1);
                 },
                 Instruction::JumpN(label) => {
-                    if label.len() != 1 {
-                        // TODO: support arbitrary labels
-                        panic!("Unknown label: {}", label);
-                    }
-                    
-                    let index = label.as_bytes()[0] - 'a' as u8;
-                    
                     match held_item {
                         Some(DataCube::Number(x)) if x < 0 => {
-                            program_counter = self.jump_index_table[index as usize];
+                            program_counter = self.jump_label_lines[label].saturating_sub(1);
                         },
                         Some(_) => {},
                         None => return Err(HRMRuntimeError::EmptyHands),
                     }
                 },
                 Instruction::JumpZ(label) => {
-                    if label.len() != 1 {
-                        // TODO: support arbitrary labels
-                        panic!("Unknown label: {}", label);
-                    }
-                    
-                    let index = label.as_bytes()[0] - 'a' as u8;
-                    
                     match held_item {
                         Some(DataCube::Number(x)) if x == 0 => {
-                            program_counter = self.jump_index_table[index as usize];
+                            program_counter = self.jump_label_lines[label].saturating_sub(1);
                         },
                         Some(_) => {},
                         None => return Err(HRMRuntimeError::EmptyHands),
                     }
                 },
-                
-                Instruction::_Label(_) => { unreachable!() },
             }
             
             steps += 1;
@@ -277,23 +247,22 @@ impl Program {
         
         // find leaders, s.t. each pair in leader_indices is the start and end of a block
         let mut leader_indices = vec![0];
+        
         for (i, inst) in self.instructions.iter().enumerate().skip(1) {
             if let Jump(_) | JumpN(_) | JumpZ(_) = inst {
                 if !matches!(self.instructions.get(i + 1), Some(Jump(_) | JumpN(_) | JumpZ(_))) {
                     leader_indices.push(i + 1);
                 }
             }
-            else if let _Label(_) = inst {
-                if let Some(_Label(_)) = self.instructions.get(i - 1) {
-                    continue;
-                }
-                // dont add the same index twice
-                if let Some(&a) = leader_indices.last() {
-                    if a == i { continue; }
-                }
-                leader_indices.push(i);
+        }
+        
+        for jump_idx in self.jump_label_lines.values() {
+            if !leader_indices.contains(jump_idx) {
+                leader_indices.push(*jump_idx);
             }
         }
+        
+        leader_indices.sort();
         
         // make sure to end the last block
         if let Some(&last) = leader_indices.last() {
@@ -302,22 +271,10 @@ impl Program {
             }
         }
         
-        // ids of each block that a given label is the head for
-        let label_block_ids: Vec<BasicBlockId> = self.jump_index_table.iter()
-            .map(|i| match leader_indices.binary_search(i) {
-                Ok(idx) => BasicBlockId(idx),
-                Err(idx) => BasicBlockId(idx - 1),
-            }).collect();
-        
         let mut blocks: Vec<_> = leader_indices.iter()
         .zip(leader_indices.iter().skip(1)).enumerate()
-        .map(|(i, (&(mut a), &(mut b)))| {
+        .map(|(i, (&a, &(mut b)))| {
             let end = b;
-            
-            // advance a forward to ignore labels
-            while let Some(_Label(_)) = self.instructions.get(a) {
-                a += 1;
-            }
             
             // advance b backwards to ignore jumps
             while let Some(Jump(_) | JumpN(_) | JumpZ(_)) = self.instructions.get(b-1) {
@@ -336,9 +293,12 @@ impl Program {
                     JumpZ(l) => (l, JumpFlag::IfZero),
                     _ => unreachable!(),
                 };
-                let label_idx = label.as_bytes()[0] - b'a';
-                let id = label_block_ids[label_idx as usize].clone();
-                (id, flag)
+                let label_idx = self.jump_label_lines[label];
+                let block_id = match leader_indices.binary_search(&label_idx) {
+                    Ok(idx) => BasicBlockId(idx),
+                    Err(idx) => BasicBlockId(idx - 1),
+                };
+                (block_id, flag)
             }).collect();
             
             if !has_unconditional_jump {

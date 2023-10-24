@@ -79,4 +79,5 @@ pub enum AsmParseError {
     UnexpectedToken(String),
     ExpectedToken,
     IntParseError(std::num::ParseIntError),
+    UnknownLabel(String)
 }

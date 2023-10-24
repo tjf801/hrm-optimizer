@@ -104,9 +104,6 @@ pub enum Instruction {
     /// decrement the value at the address, and copy it to the accumulator
     BumpDn(Address),
     
-    /// internal helper instruction to show the end point of a jump instruction
-    _Label(String),
-    
     /// **JUMP: Jump to a new location within your program.**
     /// **You can jump backward to create loops, or jump forward to skip entire sections.**
     /// **The possibilities are endless!**
@@ -129,16 +126,6 @@ pub enum Instruction {
 
 impl Instruction {
     pub fn parse_from_args(statement: &str, arg: Option<&str>) -> Result<Self, AsmParseError> {
-        // parse labels
-        if let Some(label) = statement.strip_suffix(':') {
-            return if let Some(arg) = arg {
-                Err(AsmParseError::UnexpectedToken(arg.to_string()))
-            } else {
-                Ok(Self::_Label(label.to_string()))
-            }
-        }
-        
-        // parse everything else
         match statement {
             "INBOX" => {
                 arg

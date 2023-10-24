@@ -20,6 +20,7 @@ fn main() -> std::process::ExitCode {
     // for (i, inst) in program.instructions.iter().enumerate() {
     //     println!("{i}. {inst:?}");
     // }
+    // println!("{:?}", program.jump_label_lines);
     
     for block in program.split_into_blocks() {
         println!("Block {:?}:", block.id.0);
@@ -30,7 +31,7 @@ fn main() -> std::process::ExitCode {
                 println!("    -> Block {:?} ({:?})", id.0, flag);
             }
             println!();
-        } else {
+        } else if block.id.0 != 0 {
             println!("  (DEAD BLOCK)");
         }
         
