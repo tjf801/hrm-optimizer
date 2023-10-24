@@ -36,9 +36,11 @@ pub fn refresh_incoming_jumps(blocks: &mut [BasicBlock]) {
     }
 }
 
-pub fn simplify_outgoing_jumps(blocks: &mut [BasicBlock]) {
+pub fn simplify_outgoing_jumps(blocks: &mut [BasicBlock]) -> bool {
+    let mut result = false;
+    
     for block in blocks.iter_mut() {
-        match &mut block.outgoing_jumps[..] {
+        result |= match &mut block.outgoing_jumps[..] {
             [(_, flag1), (_, flag2)] => {
                 let new_flag = match flag1 {
                     JumpFlag::Always => None,
@@ -53,22 +55,26 @@ pub fn simplify_outgoing_jumps(blocks: &mut [BasicBlock]) {
                     Some(flag) => { *flag2 = flag; },
                     None => { block.outgoing_jumps.pop(); }
                 }
+                true
             }
-            _ => {}
+            _ => { false }
         }
     }
     
-    refresh_incoming_jumps(blocks);
+    return result;
 }
 
-pub fn remove_dead_blocks(blocks: &mut Vec<BasicBlock>) {
+pub fn remove_dead_blocks(blocks: &mut Vec<BasicBlock>) -> bool {
+    let old_len = blocks.len();
     blocks.retain(|block| block.id.0 == 0 || !block.incoming_jumps.is_empty());
-    refresh_incoming_jumps(blocks);
+    old_len != blocks.len()
 }
 
-pub fn combine_sequential_blocks(blocks: &mut Vec<BasicBlock>) {
+pub fn combine_sequential_blocks(blocks: &mut Vec<BasicBlock>) -> bool {
     let mut i = 0;
     let mut offset = 0;
+    
+    let mut to_remove: Vec<usize> = vec![];
     
     while i + offset < blocks.len() - 1 {
         let (_blocks, _blocks_after) = blocks.split_at_mut(i+1);
@@ -76,15 +82,19 @@ pub fn combine_sequential_blocks(blocks: &mut Vec<BasicBlock>) {
         let block2 = _blocks_after.get_mut(offset).unwrap();
         
         match (&block1.outgoing_jumps[..], &block2.incoming_jumps[..]) {
-            ([(b, JumpFlag::Always)], [(a, JumpFlag::Always)]) if *a == block1.id && *b == block2.id => {
+            ([(b, JumpFlag::Always)], [(_, JumpFlag::Always)]) if /* *a == block1.id && */ *b == block2.id => {
                 block1.instructions.extend(block2.instructions.drain(..));
                 block1.outgoing_jumps = block2.outgoing_jumps.clone();
+                to_remove.push(i+offset+1);
                 offset += 1;
             }
             _ => { i = i + offset + 1; offset = 0; continue }
         }
     }
     
-    refresh_incoming_jumps(blocks);
-    remove_dead_blocks(blocks);
+    for &i in to_remove.iter().rev() {
+        blocks.remove(i);
+    }
+    
+    !to_remove.is_empty()
 }

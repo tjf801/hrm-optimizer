@@ -25,9 +25,16 @@ fn main() -> std::process::ExitCode {
     
     let mut blocks = program.split_into_blocks();
     
-    optimize::simplify_outgoing_jumps(&mut blocks);
-    optimize::remove_dead_blocks(&mut blocks);
-    optimize::combine_sequential_blocks(&mut blocks);
+    // optimization loop
+    loop {
+        optimize::refresh_incoming_jumps(&mut blocks);
+        
+        if optimize::simplify_outgoing_jumps(&mut blocks) { println!("simplify_outgoing_jumps"); continue }
+        else if optimize::remove_dead_blocks(&mut blocks) { println!("remove_dead_blocks"); continue }
+        else if optimize::combine_sequential_blocks(&mut blocks) { println!("combine_sequential_blocks"); continue }
+        
+        break;
+    }
     
     for block in blocks {
         println!("Block {:?}:", block.id.0);
