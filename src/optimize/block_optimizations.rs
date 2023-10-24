@@ -41,7 +41,7 @@ pub fn simplify_outgoing_jumps(blocks: &mut [BasicBlock]) -> bool {
     
     for block in blocks.iter_mut() {
         result |= match &mut block.outgoing_jumps[..] {
-            [(_, flag1), (_, flag2)] => {
+            [(_, flag1), (_, flag2)] if *flag2 == JumpFlag::Always => {
                 let new_flag = match flag1 {
                     JumpFlag::Always => None,
                     JumpFlag::IfZero => Some(JumpFlag::IfNotZero),
