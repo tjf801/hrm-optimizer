@@ -27,11 +27,13 @@ fn main() -> std::process::ExitCode {
     
     // optimization loop
     loop {
-        optimize::refresh_incoming_jumps(&mut blocks);
+        use optimize::block_optimizations::*;
         
-        if optimize::simplify_outgoing_jumps(&mut blocks) { println!("simplify_outgoing_jumps"); continue }
-        else if optimize::remove_dead_blocks(&mut blocks) { println!("remove_dead_blocks"); continue }
-        else if optimize::combine_sequential_blocks(&mut blocks) { println!("combine_sequential_blocks"); continue }
+        refresh_incoming_jumps(&mut blocks);
+        
+        if simplify_outgoing_jumps(&mut blocks) { println!("simplify_outgoing_jumps"); continue }
+        else if remove_dead_blocks(&mut blocks) { println!("remove_dead_blocks"); continue }
+        else if combine_sequential_blocks(&mut blocks) { println!("combine_sequential_blocks"); continue }
         
         break;
     }
