@@ -17,6 +17,9 @@ fn main() -> std::process::ExitCode {
     
     let asm_file_contents = std::fs::read_to_string(&argv[1]).expect("Failed to read file");
     let mut program = program::Program::from_asm(&asm_file_contents).unwrap();
+    program.initial_floor = vec![None; 16];
+    program.initial_floor[15] = Some(DataCube::from_number(4).unwrap());
+    program.initial_floor[14] = Some(DataCube::from_number(0).unwrap());
     
     // for (i, inst) in program.instructions.iter().enumerate() {
     //     println!("{i}. {inst:?}");
@@ -66,9 +69,6 @@ fn main() -> std::process::ExitCode {
     }
     
     // (NOTE: average perf: 182 steps)
-    program.initial_floor = vec![None; 16];
-    program.initial_floor[15] = Some(DataCube::from_number(4).unwrap());
-    program.initial_floor[14] = Some(DataCube::from_number(0).unwrap());
     println!("{:?}", program.simulate(vec![
         DataCube::from_char('A').unwrap(),
         DataCube::from_char('D').unwrap(),
