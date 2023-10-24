@@ -1,7 +1,7 @@
 use crate::{errors::{AsmParseError, HRMRuntimeError}, datacube::DataCube};
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Address {
     Direct(usize),
     Indirect(usize),

@@ -37,6 +37,10 @@ fn main() -> std::process::ExitCode {
         if simplify_outgoing_jumps(&mut blocks) { println!("simplify_outgoing_jumps"); continue }
         else if remove_dead_blocks(&mut blocks) { println!("remove_dead_blocks"); continue }
         else if combine_sequential_blocks(&mut blocks) { println!("combine_sequential_blocks"); continue }
+        else if blocks.iter_mut().map(|block| optimize::local_optimizations::peephole_optimizations(block)).filter(|&i|i).count() > 0 {
+            println!("peephole_optimizations");
+            continue
+        }
         
         break;
     }
