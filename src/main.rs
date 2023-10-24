@@ -6,6 +6,7 @@ mod instruction;
 mod program;
 
 mod basic_blocks;
+mod optimize;
 
 fn main() -> std::process::ExitCode {
     let argv = std::env::args().collect::<Vec<_>>();
@@ -22,17 +23,24 @@ fn main() -> std::process::ExitCode {
     // }
     // println!("{:?}", program.jump_label_lines);
     
-    for block in program.split_into_blocks() {
+    let mut blocks = program.split_into_blocks();
+    
+    optimize::simplify_outgoing_jumps(&mut blocks);
+    optimize::remove_dead_blocks(&mut blocks);
+    optimize::combine_sequential_blocks(&mut blocks);
+    
+    for block in blocks {
         println!("Block {:?}:", block.id.0);
         
-        if block.incoming_jumps.len() > 0 {
-            println!("  Incoming jumps:");
-            for (id, flag) in block.incoming_jumps {
-                println!("    -> Block {:?} ({:?})", id.0, flag);
-            }
-            println!();
-        } else if block.id.0 != 0 {
-            println!("  (DEAD BLOCK)");
+        match &block.incoming_jumps[..] {
+            [] => if block.id.0 != 0 { println!("  (DEAD BLOCK)") },
+            [jumps @ ..] => {
+                println!("  Incoming jumps:");
+                for (id, flag) in jumps {
+                    println!("    -> Block {:?} ({:?})", id.0, flag);
+                }
+                println!();
+            },
         }
         
         for inst in block.instructions {
@@ -49,7 +57,8 @@ fn main() -> std::process::ExitCode {
     }
     
     // (NOTE: average perf: 182 steps)
-    program.initial_floor = vec![None; 15];
+    program.initial_floor = vec![None; 16];
+    program.initial_floor[15] = Some(DataCube::from_number(4).unwrap());
     program.initial_floor[14] = Some(DataCube::from_number(0).unwrap());
     println!("{:?}", program.simulate(vec![
         DataCube::from_char('A').unwrap(),
@@ -62,7 +71,7 @@ fn main() -> std::process::ExitCode {
         DataCube::from_char('D').unwrap(),
         DataCube::from_char('B').unwrap(),
         DataCube::from_char('E').unwrap(),
-    ]).unwrap_or((0, vec![])));
+    ]).unwrap());
     
     return std::process::ExitCode::SUCCESS;
 }

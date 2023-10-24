@@ -271,7 +271,7 @@ impl Program {
             }
         }
         
-        let mut blocks: Vec<_> = leader_indices.iter()
+        leader_indices.iter()
         .zip(leader_indices.iter().skip(1)).enumerate()
         .map(|(i, (&a, &(mut b)))| {
             let end = b;
@@ -311,35 +311,6 @@ impl Program {
                 outgoing_jumps: jumps,
                 incoming_jumps: vec![],
             }
-        }).collect();
-        
-        // add incoming jumps
-        let n = blocks.len();
-        for i in 0..blocks.len() {
-            let (_blocks, blocks_after) = blocks.split_at_mut(i+1);
-            let (block, blocks_before) = _blocks.split_last_mut().unwrap();
-            
-            for &(BasicBlockId(id), flag) in &block.outgoing_jumps {
-                if id == block.id.0 || id == n {
-                    continue;
-                }
-                
-                let target_block = if id < block.id.0 {
-                    &mut blocks_before[id]
-                } else {
-                    &mut blocks_after[id - block.id.0 - 1]
-                };
-                
-                let incoming_flag = if block.outgoing_jumps.len() == 1 {
-                    Some(flag)
-                } else {
-                    None // TODO
-                };
-                
-                target_block.incoming_jumps.push((block.id.clone(), incoming_flag));
-            }
-        }
-        
-        blocks
+        }).collect()
     }
 }
