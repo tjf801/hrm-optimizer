@@ -1,11 +1,12 @@
 use datacube::DataCube;
 
+use crate::optimize::control_flow_graph::ProgramControlFlowGraph;
+
 mod errors;
 mod datacube;
 mod instruction;
 mod program;
 
-mod basic_blocks;
 mod optimize;
 
 fn main() -> std::process::ExitCode {
@@ -26,18 +27,16 @@ fn main() -> std::process::ExitCode {
     // }
     // println!("{:?}", program.jump_label_lines);
     
-    let mut blocks = program.split_into_blocks();
+    let mut cfg = ProgramControlFlowGraph::new(&program);
     
     // optimization loop
     loop {
         use optimize::block_optimizations::*;
         
-        refresh_incoming_jumps(&mut blocks);
-        
-        if simplify_outgoing_jumps(&mut blocks) { println!("simplify_outgoing_jumps"); continue }
-        else if remove_dead_blocks(&mut blocks) { println!("remove_dead_blocks"); continue }
-        else if combine_sequential_blocks(&mut blocks) { println!("combine_sequential_blocks"); continue }
-        else if blocks.iter_mut().map(|block| optimize::local_optimizations::peephole_optimizations(block)).filter(|&i|i).count() > 0 {
+        if cfg.blocks.iter_mut().map(|block| optimize::local_optimizations::simplify_outgoing_jumps(block)).filter(|&i|i).count() > 0 { println!("simplify_outgoing_jumps"); continue }
+        else if remove_dead_blocks(&mut cfg.blocks) { println!("remove_dead_blocks"); continue }
+        else if combine_sequential_blocks(&mut cfg.blocks) { println!("combine_sequential_blocks"); continue }
+        else if cfg.blocks.iter_mut().map(|block| optimize::local_optimizations::peephole_optimizations(block)).filter(|&i|i).count() > 0 {
             println!("peephole_optimizations");
             continue
         }
@@ -45,7 +44,7 @@ fn main() -> std::process::ExitCode {
         break;
     }
     
-    for block in blocks {
+    for block in cfg.blocks {
         println!("Block {:?}:", block.id.0);
         
         match &block.incoming_jumps[..] {

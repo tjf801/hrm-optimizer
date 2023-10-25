@@ -1,5 +1,29 @@
-use crate::{basic_blocks::BasicBlock, instruction::Address};
+use crate::{optimize::basic_blocks::BasicBlock, instruction::Address};
 
+use super::basic_blocks::JumpFlag;
+
+
+pub fn simplify_outgoing_jumps(block: &mut BasicBlock) -> bool {
+    match &mut block.outgoing_jumps[..] {
+        [(_, flag1), (_, flag2)] if *flag2 == JumpFlag::Always => {
+            let new_flag = match flag1 {
+                JumpFlag::Always => None,
+                JumpFlag::IfZero => Some(JumpFlag::IfNotZero),
+                JumpFlag::IfNotZero => Some(JumpFlag::IfZero),
+                JumpFlag::IfNegative => Some(JumpFlag::IfNotNegative),
+                JumpFlag::IfNotNegative => Some(JumpFlag::IfNegative),
+                JumpFlag::IfPositive => Some(JumpFlag::IfNotPositive),
+                JumpFlag::IfNotPositive => Some(JumpFlag::IfPositive),
+            };
+            match new_flag {
+                Some(flag) => { *flag2 = flag; },
+                None => { block.outgoing_jumps.pop(); }
+            }
+            true
+        }
+        _ => { false }
+    }
+}
 
 pub fn peephole_optimizations(block: &mut BasicBlock) -> bool {
     use crate::instruction::Instruction::*;

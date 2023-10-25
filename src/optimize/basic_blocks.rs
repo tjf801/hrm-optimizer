@@ -22,4 +22,3 @@ pub struct BasicBlock {
     pub incoming_jumps: Vec<(BasicBlockId, JumpFlag)>,
 }
 
-

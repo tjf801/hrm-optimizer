@@ -1,10 +1,10 @@
-use std::{sync::Arc, collections::HashMap};
+use std::collections::HashMap;
 
 use crate::{errors::{HRMRuntimeError, AsmParseError}, instruction::Instruction, datacube::DataCube};
 
 
 pub struct Program {
-    pub instructions: Arc<[Instruction]>,
+    pub instructions: Vec<Instruction>,
     pub initial_floor: Vec<Option<DataCube>>,
     pub jump_label_lines: std::collections::HashMap<String, usize>,
 }
@@ -240,78 +240,5 @@ impl Program {
         }
         
         Ok((steps, outbox))
-    }
-    
-    pub fn split_into_blocks(&self) -> Vec<crate::basic_blocks::BasicBlock> {
-        use crate::basic_blocks::{BasicBlockId, BasicBlock, JumpFlag};
-        use Instruction::*;
-        
-        // find leaders, s.t. each pair in leader_indices is the start and end of a block
-        let mut leader_indices = vec![0];
-        
-        for (i, inst) in self.instructions.iter().enumerate().skip(1) {
-            if let Jump(_) | JumpN(_) | JumpZ(_) = inst {
-                if !matches!(self.instructions.get(i + 1), Some(Jump(_) | JumpN(_) | JumpZ(_))) {
-                    leader_indices.push(i + 1);
-                }
-            }
-        }
-        
-        for jump_idx in self.jump_label_lines.values() {
-            if !leader_indices.contains(jump_idx) {
-                leader_indices.push(*jump_idx);
-            }
-        }
-        
-        leader_indices.sort();
-        
-        // make sure to end the last block
-        if let Some(&last) = leader_indices.last() {
-            if last != self.instructions.len() {
-                leader_indices.push(self.instructions.len());
-            }
-        }
-        
-        leader_indices.iter()
-        .zip(leader_indices.iter().skip(1)).enumerate()
-        .map(|(i, (&a, &(mut b)))| {
-            let end = b;
-            
-            // advance b backwards to ignore jumps
-            while let Some(Jump(_) | JumpN(_) | JumpZ(_)) = self.instructions.get(b-1) {
-                b -= 1;
-            }
-            
-            let mut has_unconditional_jump = false;
-            
-            let mut jumps: Vec<(BasicBlockId, JumpFlag)> = self.instructions[b..end].iter().map(|jump| {
-                let (label, flag) = match jump {
-                    Jump(l) => {
-                        has_unconditional_jump = true;
-                        (l, JumpFlag::Always)
-                    },
-                    JumpN(l) => (l, JumpFlag::IfNegative),
-                    JumpZ(l) => (l, JumpFlag::IfZero),
-                    _ => unreachable!(),
-                };
-                let label_idx = self.jump_label_lines[label];
-                let block_id = match leader_indices.binary_search(&label_idx) {
-                    Ok(idx) => BasicBlockId(idx),
-                    Err(idx) => BasicBlockId(idx - 1),
-                };
-                (block_id, flag)
-            }).collect();
-            
-            if !has_unconditional_jump {
-                jumps.push((BasicBlockId(i + 1), JumpFlag::Always));
-            }
-            
-            BasicBlock {
-                id: BasicBlockId(i),
-                instructions: self.instructions[a..b].to_vec(),
-                outgoing_jumps: jumps,
-                incoming_jumps: vec![],
-            }
-        }).collect()
     }
 }
