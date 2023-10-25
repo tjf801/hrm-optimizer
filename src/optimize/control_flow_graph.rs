@@ -1,6 +1,8 @@
 use crate::{
     program::Program,
-    optimize::basic_blocks::{BasicBlockId, BasicBlock, JumpFlag},
+    optimize::{
+        basic_blocks::{BasicBlockId, BasicBlock}, jump_flag::JumpFlag
+    },
     instruction::Instruction,
     datacube::DataCube
 };

@@ -1,15 +1,6 @@
 use crate::instruction::Instruction;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum JumpFlag {
-    Always,
-    IfZero,
-    IfNotZero,
-    IfNegative,
-    IfNotNegative,
-    IfPositive,
-    IfNotPositive,
-}
+use super::jump_flag::JumpFlag;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BasicBlockId(pub usize);

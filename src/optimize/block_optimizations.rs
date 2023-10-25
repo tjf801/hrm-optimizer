@@ -1,4 +1,4 @@
-use crate::optimize::basic_blocks::JumpFlag;
+use crate::optimize::jump_flag::JumpFlag;
 
 use super::control_flow_graph::ProgramControlFlowGraph;
 
