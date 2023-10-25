@@ -21,8 +21,8 @@ impl JumpFlag {
             0b010 => JumpFlag::IfNegative,
             0b011 => JumpFlag::IfNotPositive,
             0b100 => JumpFlag::IfPositive,
-            0b101 => JumpFlag::IfNotZero,
-            0b110 => JumpFlag::IfNotNegative,
+            0b101 => JumpFlag::IfNotNegative,
+            0b110 => JumpFlag::IfNotZero,
             0b111 => JumpFlag::Always,
             _ => panic!("invalid jump flag: {}", x),
         }
