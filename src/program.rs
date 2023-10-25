@@ -35,6 +35,7 @@ impl Program {
             // TODO: this is a shitty hack
             if let Some(&define) = tokens.get(0) { 
                 if define == "DEFINE" { break }
+                if define == "COMMENT" { continue }
             }
             
             if let Some(tok) = tokens.get(2) {
