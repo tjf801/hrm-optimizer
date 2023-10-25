@@ -213,12 +213,16 @@ impl Program {
                 
                 // jump instructions
                 Instruction::Jump(label) => {
-                    program_counter = self.jump_label_lines[label].saturating_sub(1);
+                    program_counter = self.jump_label_lines[label];
+                    steps += 1;
+                    continue;
                 },
                 Instruction::JumpN(label) => {
                     match held_item {
                         Some(DataCube::Number(x)) if x < 0 => {
-                            program_counter = self.jump_label_lines[label].saturating_sub(1);
+                            program_counter = self.jump_label_lines[label];
+                            steps += 1;
+                            continue;
                         },
                         Some(_) => {},
                         None => return Err(HRMRuntimeError::EmptyHands),
@@ -227,7 +231,9 @@ impl Program {
                 Instruction::JumpZ(label) => {
                     match held_item {
                         Some(DataCube::Number(x)) if x == 0 => {
-                            program_counter = self.jump_label_lines[label].saturating_sub(1);
+                            program_counter = self.jump_label_lines[label];
+                            steps += 1;
+                            continue;
                         },
                         Some(_) => {},
                         None => return Err(HRMRuntimeError::EmptyHands),
