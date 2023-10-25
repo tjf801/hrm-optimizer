@@ -1,19 +1,21 @@
-use crate::optimize::basic_blocks::{BasicBlock, JumpFlag};
+use crate::optimize::basic_blocks::JumpFlag;
 
-pub fn remove_dead_blocks(blocks: &mut Vec<BasicBlock>) -> bool {
-    let old_len = blocks.len();
-    blocks.retain(|block| block.id.0 == 0 || !block.incoming_jumps.is_empty());
-    old_len != blocks.len()
+use super::control_flow_graph::ProgramControlFlowGraph;
+
+pub fn remove_dead_blocks(graph: &mut ProgramControlFlowGraph) -> bool {
+    let old_len = graph.blocks.len();
+    graph.blocks.retain(|block| block.id.0 == 0 || !block.incoming_jumps.is_empty());
+    old_len != graph.blocks.len()
 }
 
-pub fn combine_sequential_blocks(blocks: &mut Vec<BasicBlock>) -> bool {
+pub fn combine_sequential_blocks(graph: &mut ProgramControlFlowGraph) -> bool {
     let mut i = 0;
     let mut offset = 0;
     
     let mut to_remove: Vec<usize> = vec![];
     
-    while i + offset < blocks.len() - 1 {
-        let (_blocks, _blocks_after) = blocks.split_at_mut(i+1);
+    while i + offset < graph.blocks.len() - 1 {
+        let (_blocks, _blocks_after) = graph.blocks.split_at_mut(i+1);
         let block1 = _blocks.last_mut().unwrap();
         let block2 = _blocks_after.get_mut(offset).unwrap();
         
@@ -29,7 +31,7 @@ pub fn combine_sequential_blocks(blocks: &mut Vec<BasicBlock>) -> bool {
     }
     
     for &i in to_remove.iter().rev() {
-        blocks.remove(i);
+        graph.blocks.remove(i);
     }
     
     !to_remove.is_empty()

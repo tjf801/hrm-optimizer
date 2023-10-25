@@ -5,6 +5,19 @@ use crate::{
     datacube::DataCube
 };
 
+pub trait Optimization {
+    /// optimize the given control flow graph.
+    /// 
+    /// returns true if the graph was modified.
+    fn optimize(&mut self, graph: &mut ProgramControlFlowGraph) -> bool;
+}
+
+impl<T: FnMut(&mut ProgramControlFlowGraph) -> bool> Optimization for T {
+    fn optimize(&mut self, graph: &mut ProgramControlFlowGraph) -> bool {
+        self(graph)
+    }
+}
+
 pub struct ProgramControlFlowGraph {
     pub initial_floor: Vec<Option<DataCube>>,
     pub blocks: Vec<BasicBlock>,
@@ -130,5 +143,11 @@ impl ProgramControlFlowGraph {
                 target_block.incoming_jumps.push((block.id.clone(), *incoming_flag));
             }
         }
+    }
+    
+    pub fn run_optimization_pass(&mut self, mut optimizer: impl Optimization) -> bool {
+        let result = optimizer.optimize(self);
+        if result { self.refresh_incoming_jumps(); }
+        result
     }
 }

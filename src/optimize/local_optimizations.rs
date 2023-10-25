@@ -1,7 +1,17 @@
 use crate::{optimize::basic_blocks::BasicBlock, instruction::Address};
 
 use super::basic_blocks::JumpFlag;
+use super::control_flow_graph::{ProgramControlFlowGraph, Optimization};
 
+pub fn local_optimization<T: FnMut(&mut BasicBlock) -> bool>(mut block_optimization: T) -> impl Optimization {
+    move |graph: &mut ProgramControlFlowGraph| {
+        let mut modified = false;
+        for block in graph.blocks.iter_mut() {
+            modified |= block_optimization(block);
+        }
+        modified
+    }
+}
 
 pub fn simplify_outgoing_jumps(block: &mut BasicBlock) -> bool {
     match &mut block.outgoing_jumps[..] {
