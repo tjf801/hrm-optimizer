@@ -1,6 +1,6 @@
 use datacube::DataCube;
 
-use crate::optimize::control_flow_graph::{ProgramControlFlowGraph, Optimization};
+use crate::optimize::control_flow_graph::ProgramControlFlowGraph;
 
 mod errors;
 mod datacube;
@@ -39,6 +39,8 @@ fn main() -> std::process::ExitCode {
         } else if cfg.run_optimization_pass(remove_dead_blocks) {
             println!("remove_dead_blocks"); continue 
         } else if cfg.run_optimization_pass(combine_sequential_blocks) {
+            println!("combine_sequential_blocks"); continue
+        } else if cfg.run_optimization_pass(remove_empty_blocks) {
             println!("combine_sequential_blocks"); continue
         } else if cfg.run_optimization_pass(local_optimization(peephole_optimizations)) {
             println!("peephole_optimizations"); continue

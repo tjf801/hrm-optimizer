@@ -36,3 +36,45 @@ pub fn combine_sequential_blocks(graph: &mut ProgramControlFlowGraph) -> bool {
     
     !to_remove.is_empty()
 }
+
+/// NOTE: soundness depends on `simplify_outgoing_jumps` and 
+///       then `refresh_incoming_jumps` being run before this.
+pub fn remove_empty_blocks(graph: &mut ProgramControlFlowGraph) -> bool {
+    let mut to_remove: Vec<usize> = vec![];
+    
+    for (i, block) in graph.blocks.iter().enumerate() {
+        if block.instructions.is_empty() {
+            to_remove.push(i);
+        }
+    }
+    
+    for &i in to_remove.iter().rev() {
+        // can't just remove the block, because it might have incoming jumps
+        let current_block_id = graph.blocks[i].id.clone();
+        let incoming_jumps = graph.blocks[i].incoming_jumps.clone();
+        let outgoing_jumps = graph.blocks[i].outgoing_jumps.clone();
+        
+        for (id, flag) in incoming_jumps {
+            let block_idx = graph.blocks.iter().position(|block| block.id == id).expect("invalid block id");
+            let block = &mut graph.blocks[block_idx];
+            
+            // replace the incoming jump with all the jumps from the block we're removing
+            // NOTE: since we know that all the jumps in the preceeding block commute (we
+            //       just ran `simplify_outgoing_jumps`), we can just append them all to
+            //       the end of its outgoing jumps.
+            let jump_pos = block.outgoing_jumps.iter()
+                .position(|(id2, _)| *id2 == current_block_id)
+                .expect("incoming jump not found");
+            
+            let (_block_id, _out_flag) = block.outgoing_jumps.remove(jump_pos);
+            debug_assert_eq!(_block_id, current_block_id);
+            debug_assert_eq!(flag, _out_flag);
+            
+            block.outgoing_jumps.extend(outgoing_jumps.iter().map(|(id_out, flag_out)| (id_out.clone(), *flag_out & flag)));
+        }
+        
+        graph.blocks.remove(i);
+    }
+    
+    !to_remove.is_empty()
+}
