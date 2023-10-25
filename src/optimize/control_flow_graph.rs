@@ -126,6 +126,7 @@ impl ProgramControlFlowGraph {
             
             for (out_jmp_id, flag) in &block.outgoing_jumps {
                 if out_jmp_id == &block.id {
+                    block.incoming_jumps.push((block.id.clone(), *flag));
                     continue;
                 }
                 
