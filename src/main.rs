@@ -41,7 +41,7 @@ fn main() -> std::process::ExitCode {
         } else if cfg.run_optimization_pass(combine_sequential_blocks) {
             println!("combine_sequential_blocks"); continue
         } else if cfg.run_optimization_pass(remove_empty_blocks) {
-            println!("combine_sequential_blocks"); continue
+            println!("remove_empty_blocks"); continue
         } else if cfg.run_optimization_pass(local_optimization(peephole_optimizations)) {
             println!("peephole_optimizations"); continue
         }
