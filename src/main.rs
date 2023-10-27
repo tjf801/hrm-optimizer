@@ -46,10 +46,12 @@ fn main() -> std::process::ExitCode {
             println!("peephole_optimizations"); continue
         }
         
+        cfg.relabel_blocks();
+        
         break;
     }
     
-    for block in cfg.blocks {
+    for block in cfg.blocks.iter() {
         println!("Block {:?}:", block.id.0);
         
         match &block.incoming_jumps[..] {
@@ -63,18 +65,20 @@ fn main() -> std::process::ExitCode {
             },
         }
         
-        for inst in block.instructions {
+        for inst in block.instructions.iter() {
             println!("  {inst:?}");
         }
         
         println!("  Outgoing jumps:");
-        for (id, flag) in block.outgoing_jumps {
+        for (id, flag) in block.outgoing_jumps.iter() {
             println!("    -> Block {:?} ({:?})", id.0, flag);
         }
         println!();
         
         println!();
     }
+    
+    let _: program::Program = (&cfg).into();
     
     // (NOTE: average perf: 182 steps)
     println!("{:?}", program.simulate(vec![

@@ -2,7 +2,8 @@ use crate::instruction::Instruction;
 
 use super::jump_flag::JumpFlag;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
 pub struct BasicBlockId(pub usize);
 
 #[derive(Debug)]

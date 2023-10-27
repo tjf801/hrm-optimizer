@@ -20,6 +20,7 @@ impl<T: FnMut(&mut ProgramControlFlowGraph) -> bool> Optimization for T {
     }
 }
 
+
 pub struct ProgramControlFlowGraph {
     pub initial_floor: Vec<Option<DataCube>>,
     pub blocks: Vec<BasicBlock>,
@@ -152,5 +153,73 @@ impl ProgramControlFlowGraph {
         let result = optimizer.optimize(self);
         if result { self.refresh_incoming_jumps(); }
         result
+    }
+    
+    pub(crate) fn relabel_blocks(&mut self) {
+        let mut remapping = std::collections::HashMap::new();
+        
+        for (i, block) in self.blocks.iter().enumerate() {
+            remapping.insert(block.id.clone(), BasicBlockId(i));
+        }
+        
+        let end_block = BasicBlockId(self.blocks.len());
+        for block in self.blocks.iter_mut() {
+            block.id = remapping[&block.id].clone();
+            for (id, _) in block.outgoing_jumps.iter_mut() {
+                *id = remapping.get(id).cloned().unwrap_or(end_block.clone());
+            }
+            for (id, _) in block.incoming_jumps.iter_mut() {
+                *id = remapping.get(id).cloned().unwrap_or(end_block.clone());
+            }
+        }
+    }
+}
+
+impl From<&Program> for ProgramControlFlowGraph {
+    fn from(program: &Program) -> Self {
+        Self::new(program)
+    }
+}
+
+impl Into<Program> for &ProgramControlFlowGraph {
+    fn into(self) -> Program {
+        let mut label_num: usize = 1;
+        let mut instructions = Vec::new();
+        let mut label_map = std::collections::HashMap::<String, usize>::new();
+        
+        for block in self.blocks.iter() {
+            for _ in block.incoming_jumps.iter() {
+                label_map.insert(format!("L{}", label_num), instructions.len());
+                label_num += 1;
+            }
+            
+            for inst in block.instructions.iter() {
+                instructions.push(inst.clone());
+            }
+            
+            let previous_flag = JumpFlag::Never;
+            for (_id, flag) in block.outgoing_jumps.iter() {
+                instructions.push(match flag {
+                    JumpFlag::Always => Instruction::Jump("".to_string()),
+                    JumpFlag::IfNegative => Instruction::JumpN("".to_string()),
+                    JumpFlag::IfZero => Instruction::JumpZ("".to_string()),
+                    uh_oh => {
+                        println!("bad jump: {:?}", uh_oh);
+                        todo!()
+                    }
+                });
+            }
+        }
+        
+        println!("{:?}", label_map);
+        for (i, instr) in instructions.iter().enumerate() {
+            println!("{i:3}. {instr:?}")
+        }
+        
+        Program {
+            instructions,
+            initial_floor: self.initial_floor.clone(),
+            jump_label_lines: label_map
+        }
     }
 }
